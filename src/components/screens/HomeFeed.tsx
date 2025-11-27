@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
 import { Button } from "../ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { PostCard } from "../common/PostCard";
@@ -7,254 +7,72 @@ import { Search, Bell, Star } from "lucide-react";
 import { ImageWithFallback } from "../figma/ImageWithFallback";
 import { LoadingSpinner } from "../common/LoadingSpinner";
 import { SkeletonPostCard, SkeletonBigEventCard } from "../common/SkeletonCard";
+import APIContext from "../../Context/apimethods/APIContext";
+import * as apiroute from "../../Context/API/ApiRouter";
 
 interface HomeFeedProps {
   onNavigate?: (screen: string, data?: any) => void;
 }
 
 export function HomeFeed({ onNavigate }: HomeFeedProps) {
+  const { GETFunction, POSTFunction } = useContext(APIContext);
   const [isLoading, setIsLoading] = useState(true);
-  const [posts, setPosts] = useState([
-    {
-      id: "1",
-      user: {
-        name: "Student Government",
-        avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face",
-        username: "studentgov"
-      },
-      content: "📢 IMPORTANT: New library hours starting Monday! Extended study hours during finals week. Open 24/7 from Dec 10-22. Good luck with exams everyone! 📚✨",
-      image: "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=600&h=400&fit=crop",
-      timestamp: "2h",
-      likes: 156,
-      comments: 23,
-      isLiked: false,
-      commentsList: [
-        {
-          id: "c1",
-          user: {
-            name: "Emily Rodriguez",
-            avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop",
-            username: "emily_r"
-          },
-          content: "This is amazing! Finally can study late 🙏",
-          timestamp: "1h ago"
-        },
-        {
-          id: "c2",
-          user: {
-            name: "David Kim",
-            avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop",
-            username: "david_kim"
-          },
-          content: "Best news all week! Thank you Student Gov! 📚",
-          timestamp: "45m ago"
-        }
-      ]
-    },
-    {
-      id: "2",
-      user: {
-        name: "Sarah Chen",
-        avatar: "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face",
-        username: "sarahc_22"
-      },
-      content: "Just finished my first coding interview! 💻 Feeling nervous but excited. Thanks to everyone who helped me practice. CS students - the career center's mock interviews are amazing! #coding #internship",
-      timestamp: "3h",
-      likes: 89,
-      comments: 31,
-      isLiked: true,
-      commentsList: [
-        {
-          id: "c3",
-          user: {
-            name: "Marcus Johnson",
-            avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop",
-            username: "marcus_j"
-          },
-          content: "You got this Sarah! 🚀",
-          timestamp: "2h ago"
-        },
-        {
-          id: "c4",
-          user: {
-            name: "Jessica Taylor",
-            avatar: "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=150&h=150&fit=crop",
-            username: "jess_t"
-          },
-          content: "Good luck! Let us know how it goes!",
-          timestamp: "2h ago"
-        }
-      ]
-    },
-    {
-      id: "3", 
-      user: {
-        name: "Engineering Society",
-        avatar: "https://images.unsplash.com/photo-1581092921461-eab62e97a780?w=150&h=150&fit=crop&crop=face",
-        username: "engsociety"
-      },
-      content: "🔧 Tech Talk Series continues this Friday! Join us for 'AI in Sustainable Engineering' with guest speaker Dr. Martinez from Tesla. Free pizza included! 🍕",
-      timestamp: "4h",
-      likes: 142,
-      comments: 28,
-      isLiked: false,
-      commentsList: [
-        {
-          id: "c5",
-          user: {
-            name: "Alex Thompson",
-            avatar: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&h=150&fit=crop",
-            username: "alex_t"
-          },
-          content: "Can't wait for this! Tesla is doing amazing work 🚗⚡",
-          timestamp: "3h ago"
-        }
-      ]
-    },
-    {
-      id: "4",
-      user: {
-        name: "Marcus Johnson", 
-        avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face",
-        username: "marcus_j"
-      },
-      content: "Shoutout to the amazing turnout at yesterday's climate action rally! 🌍 Over 800 students showed up. Change starts with us! Next meeting: Tuesday 7pm at Student Union Room 205 #climateaction",
-      image: "https://images.unsplash.com/photo-1573166364524-d9d8d464b0fe?w=600&h=400&fit=crop",
-      timestamp: "6h",
-      likes: 234,
-      comments: 45,
-      isLiked: true,
-      commentsList: []
-    },
-    {
-      id: "5",
-      user: {
-        name: "Campus Recreation",
-        avatar: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=150&h=150&fit=crop&crop=face", 
-        username: "campusrec"
-      },
-      content: "🏃‍♀️ Intramural Basketball registration is OPEN! Teams of 5, season starts Jan 15th. $50 per team. Register at the Rec Center or online! 🏀",
-      timestamp: "8h",
-      likes: 67,
-      comments: 18,
-      isLiked: false,
-      commentsList: []
+  const [posts, setPosts] = useState([]);
+
+  const [bigEvents, setBigEvents] = useState([]);
+  const [recommendedEvents, setRecommendedEvents] = useState([]);
+
+
+
+  const handleLike = async (postId: string) => {
+    try {
+      await POSTFunction({}, `${apiroute.posturl}${postId}/like`);
+
+      setPosts(prev => prev.map(post =>
+        post.id === postId
+          ? {
+              ...post,
+              isLiked: !post.isLiked,
+              likes: post.isLiked ? post.likes - 1 : post.likes + 1
+            }
+          : post
+      ));
+    } catch (error) {
+      console.error('Error liking post:', error);
     }
-  ]);
-
-  const [bigEvents, setBigEvents] = useState([
-    {
-      id: "big-1",
-      title: "Spring Career Fair 2024",
-      image: "https://images.unsplash.com/photo-1552664730-d307ca884978?w=400&h=300&fit=crop",
-      date: "Mar 15-16",
-      time: "2 Days",
-      location: "Student Union",
-      category: "Career",
-      attendees: 2500,
-      price: "Free",
-      isBookmarked: false,
-      isRSVPd: false,
-      status: "upcoming"
-    },
-    {
-      id: "big-2",
-      title: "Homecoming Weekend",
-      image: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=300&fit=crop",
-      date: "Oct 12-14",
-      time: "3 Days",
-      location: "Campus-wide",
-      category: "Campus",
-      attendees: 8000,
-      price: "Varies",
-      isBookmarked: true,
-      isRSVPd: true,
-      status: "happening"
-    },
-    {
-      id: "big-3",
-      title: "Graduation Ceremony",
-      image: "https://images.unsplash.com/photo-1627556704203-3a0712d18d37?w=400&h=300&fit=crop",
-      date: "May 18",
-      time: "10:00 AM",
-      location: "Football Stadium",
-      category: "Academic",
-      attendees: 15000,
-      price: "Free",
-      isBookmarked: false,
-      isRSVPd: false,
-      status: "upcoming"
-    }
-  ]);
-
-  const [recommendedEvents, setRecommendedEvents] = useState([
-    {
-      id: "1",
-      title: "Study Abroad Info Session",
-      image: "https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=400&h=300&fit=crop",
-      date: "Dec 20",
-      time: "3:00 PM",
-      location: "International Center",
-      category: "Academic",
-      attendees: 45,
-      price: "Free",
-      isBookmarked: false,
-      isRSVPd: false
-    },
-    {
-      id: "2",
-      title: "Mental Health Workshop",
-      image: "https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=400&h=300&fit=crop",
-      date: "Dec 22",
-      time: "1:00 PM",
-      location: "Wellness Center",
-      category: "Wellness",
-      attendees: 67,
-      price: "Free",
-      isBookmarked: true,
-      isRSVPd: true
-    }
-  ]);
-
-
-
-  const handleLike = (postId: string) => {
-    setPosts(prev => prev.map(post => 
-      post.id === postId 
-        ? { 
-            ...post, 
-            isLiked: !post.isLiked,
-            likes: post.isLiked ? post.likes - 1 : post.likes + 1
-          }
-        : post
-    ));
   };
 
   const handleComment = (postId: string) => {
     console.log("Comment on post:", postId);
   };
 
-  const handleAddComment = (postId: string, commentText: string) => {
-    setPosts(prev => prev.map(post => {
-      if (post.id === postId) {
-        const newComment = {
-          id: `c${Date.now()}`,
-          user: {
-            name: "Alex Johnson",
-            avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop",
-            username: "alex_j"
-          },
-          content: commentText,
-          timestamp: "Just now"
-        };
-        return {
-          ...post,
-          comments: post.comments + 1,
-          commentsList: [...(post.commentsList || []), newComment]
-        };
-      }
-      return post;
-    }));
+  const handleAddComment = async (postId: string, commentText: string) => {
+    try {
+      await POSTFunction({ content: commentText }, `${apiroute.posturl}${postId}/comment`);
+
+      setPosts(prev => prev.map(post => {
+        if (post.id === postId) {
+          const newComment = {
+            id: `c${Date.now()}`,
+            user: {
+              name: "Alex Johnson",
+              avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop",
+              username: "alex_j"
+            },
+            content: commentText,
+            timestamp: "Just now"
+          };
+          return {
+            ...post,
+            comments: post.comments + 1,
+            commentsList: [...(post.commentsList || []), newComment]
+          };
+        }
+        return post;
+      }));
+    } catch (error) {
+      console.error('Error adding comment:', error);
+    }
   };
 
   const handleShare = (postId: string) => {
@@ -296,20 +114,32 @@ export function HomeFeed({ onNavigate }: HomeFeedProps) {
     }
   };
 
-  const handleRSVP = (eventId: string) => {
-    setRecommendedEvents(prev => prev.map(event => 
-      event.id === eventId 
-        ? { ...event, isRSVPd: !event.isRSVPd }
-        : event
-    ));
+  const handleRSVP = async (eventId: string) => {
+    try {
+      await POSTFunction({}, `${apiroute.eventurl}${eventId}/attend`);
+
+      setRecommendedEvents(prev => prev.map(event =>
+        event.id === eventId
+          ? { ...event, isRSVPd: !event.isRSVPd }
+          : event
+      ));
+    } catch (error) {
+      console.error('Error RSVPing to event:', error);
+    }
   };
 
-  const handleBookmark = (eventId: string) => {
-    setRecommendedEvents(prev => prev.map(event => 
-      event.id === eventId 
-        ? { ...event, isBookmarked: !event.isBookmarked }
-        : event
-    ));
+  const handleBookmark = async (eventId: string) => {
+    try {
+      await POSTFunction({}, `${apiroute.eventurl}${eventId}/interested`);
+
+      setRecommendedEvents(prev => prev.map(event =>
+        event.id === eventId
+          ? { ...event, isBookmarked: !event.isBookmarked }
+          : event
+      ));
+    } catch (error) {
+      console.error('Error bookmarking event:', error);
+    }
   };
 
   const handleBigEventClick = (eventId: string) => {
@@ -317,12 +147,97 @@ export function HomeFeed({ onNavigate }: HomeFeedProps) {
   };
 
   useEffect(() => {
-    // Simulate loading delay
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1500);
-    return () => clearTimeout(timer);
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+
+        // Fetch posts and events in parallel
+        const [postsResponse, eventsResponse] = await Promise.all([
+          GETFunction(apiroute.posturl),
+          GETFunction(apiroute.eventurl)
+        ]);
+
+        // Transform posts data to match component format
+        if (postsResponse && Array.isArray(postsResponse)) {
+          const transformedPosts = postsResponse.map((post: any) => ({
+            id: post._id,
+            user: {
+              name: post.author?.firstName && post.author?.lastName
+                ? `${post.author.firstName} ${post.author.lastName}`
+                : post.organization?.name || 'Unknown User',
+              avatar: post.author?.profileImage || post.organization?.logo || '',
+              username: post.author?.email?.split('@')[0] || post.organization?.name?.toLowerCase().replace(/\s+/g, '') || 'user'
+            },
+            content: post.content || '',
+            image: post.images && post.images.length > 0 ? post.images[0] : undefined,
+            timestamp: getTimeAgo(new Date(post.createdAt)),
+            likes: post.likes?.length || 0,
+            comments: post.comments?.length || 0,
+            isLiked: false,
+            commentsList: post.comments?.map((comment: any) => ({
+              id: comment._id || `c${Date.now()}`,
+              user: {
+                name: comment.user?.firstName && comment.user?.lastName
+                  ? `${comment.user.firstName} ${comment.user.lastName}`
+                  : 'Unknown User',
+                avatar: comment.user?.profileImage || '',
+                username: comment.user?.email?.split('@')[0] || 'user'
+              },
+              content: comment.content || '',
+              timestamp: getTimeAgo(new Date(comment.createdAt))
+            })) || []
+          }));
+          setPosts(transformedPosts);
+        }
+
+        // Transform events data to match component format
+        if (eventsResponse && Array.isArray(eventsResponse)) {
+          const transformedEvents = eventsResponse.slice(0, 2).map((event: any) => ({
+            id: event._id,
+            title: event.title || '',
+            image: event.image || '',
+            date: new Date(event.eventDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            time: event.eventTime || '',
+            location: event.location?.address || 'TBD',
+            category: event.category || 'Event',
+            attendees: event.attendees?.length || 0,
+            price: 'Free',
+            isBookmarked: false,
+            isRSVPd: false
+          }));
+          setRecommendedEvents(transformedEvents);
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
   }, []);
+
+  // Helper function to calculate time ago
+  const getTimeAgo = (date: Date) => {
+    const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
+
+    let interval = seconds / 31536000;
+    if (interval > 1) return Math.floor(interval) + "y";
+
+    interval = seconds / 2592000;
+    if (interval > 1) return Math.floor(interval) + "mo";
+
+    interval = seconds / 86400;
+    if (interval > 1) return Math.floor(interval) + "d";
+
+    interval = seconds / 3600;
+    if (interval > 1) return Math.floor(interval) + "h";
+
+    interval = seconds / 60;
+    if (interval > 1) return Math.floor(interval) + "m";
+
+    return Math.floor(seconds) + "s";
+  };
 
   return (
     <div className="min-h-screen bg-background pb-20">
