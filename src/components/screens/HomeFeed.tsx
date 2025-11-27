@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
 import { Button } from "../ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { PostCard } from "../common/PostCard";
@@ -7,254 +7,133 @@ import { Search, Bell, Star } from "lucide-react";
 import { ImageWithFallback } from "../figma/ImageWithFallback";
 import { LoadingSpinner } from "../common/LoadingSpinner";
 import { SkeletonPostCard, SkeletonBigEventCard } from "../common/SkeletonCard";
+import APIContext from "../../Context/apimethods/APIContext";
+import { posturl, eventurl } from "../../Context/API/ApiRouter";
 
 interface HomeFeedProps {
   onNavigate?: (screen: string, data?: any) => void;
 }
 
 export function HomeFeed({ onNavigate }: HomeFeedProps) {
+  const { GETFunction, POSTFunction, PUTFunction } = useContext(APIContext);
   const [isLoading, setIsLoading] = useState(true);
-  const [posts, setPosts] = useState([
-    {
-      id: "1",
-      user: {
-        name: "Student Government",
-        avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face",
-        username: "studentgov"
-      },
-      content: "📢 IMPORTANT: New library hours starting Monday! Extended study hours during finals week. Open 24/7 from Dec 10-22. Good luck with exams everyone! 📚✨",
-      image: "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=600&h=400&fit=crop",
-      timestamp: "2h",
-      likes: 156,
-      comments: 23,
-      isLiked: false,
-      commentsList: [
-        {
-          id: "c1",
-          user: {
-            name: "Emily Rodriguez",
-            avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop",
-            username: "emily_r"
-          },
-          content: "This is amazing! Finally can study late 🙏",
-          timestamp: "1h ago"
-        },
-        {
-          id: "c2",
-          user: {
-            name: "David Kim",
-            avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop",
-            username: "david_kim"
-          },
-          content: "Best news all week! Thank you Student Gov! 📚",
-          timestamp: "45m ago"
-        }
-      ]
-    },
-    {
-      id: "2",
-      user: {
-        name: "Sarah Chen",
-        avatar: "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face",
-        username: "sarahc_22"
-      },
-      content: "Just finished my first coding interview! 💻 Feeling nervous but excited. Thanks to everyone who helped me practice. CS students - the career center's mock interviews are amazing! #coding #internship",
-      timestamp: "3h",
-      likes: 89,
-      comments: 31,
-      isLiked: true,
-      commentsList: [
-        {
-          id: "c3",
-          user: {
-            name: "Marcus Johnson",
-            avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop",
-            username: "marcus_j"
-          },
-          content: "You got this Sarah! 🚀",
-          timestamp: "2h ago"
-        },
-        {
-          id: "c4",
-          user: {
-            name: "Jessica Taylor",
-            avatar: "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=150&h=150&fit=crop",
-            username: "jess_t"
-          },
-          content: "Good luck! Let us know how it goes!",
-          timestamp: "2h ago"
-        }
-      ]
-    },
-    {
-      id: "3", 
-      user: {
-        name: "Engineering Society",
-        avatar: "https://images.unsplash.com/photo-1581092921461-eab62e97a780?w=150&h=150&fit=crop&crop=face",
-        username: "engsociety"
-      },
-      content: "🔧 Tech Talk Series continues this Friday! Join us for 'AI in Sustainable Engineering' with guest speaker Dr. Martinez from Tesla. Free pizza included! 🍕",
-      timestamp: "4h",
-      likes: 142,
-      comments: 28,
-      isLiked: false,
-      commentsList: [
-        {
-          id: "c5",
-          user: {
-            name: "Alex Thompson",
-            avatar: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&h=150&fit=crop",
-            username: "alex_t"
-          },
-          content: "Can't wait for this! Tesla is doing amazing work 🚗⚡",
-          timestamp: "3h ago"
-        }
-      ]
-    },
-    {
-      id: "4",
-      user: {
-        name: "Marcus Johnson", 
-        avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face",
-        username: "marcus_j"
-      },
-      content: "Shoutout to the amazing turnout at yesterday's climate action rally! 🌍 Over 800 students showed up. Change starts with us! Next meeting: Tuesday 7pm at Student Union Room 205 #climateaction",
-      image: "https://images.unsplash.com/photo-1573166364524-d9d8d464b0fe?w=600&h=400&fit=crop",
-      timestamp: "6h",
-      likes: 234,
-      comments: 45,
-      isLiked: true,
-      commentsList: []
-    },
-    {
-      id: "5",
-      user: {
-        name: "Campus Recreation",
-        avatar: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=150&h=150&fit=crop&crop=face", 
-        username: "campusrec"
-      },
-      content: "🏃‍♀️ Intramural Basketball registration is OPEN! Teams of 5, season starts Jan 15th. $50 per team. Register at the Rec Center or online! 🏀",
-      timestamp: "8h",
-      likes: 67,
-      comments: 18,
-      isLiked: false,
-      commentsList: []
+  const [posts, setPosts] = useState<any[]>([]);
+  const [bigEvents, setBigEvents] = useState<any[]>([]);
+  const [recommendedEvents, setRecommendedEvents] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+
+
+  // Fetch posts and events from backend
+  const fetchData = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // Fetch posts
+      const postsResponse = await GETFunction(posturl);
+      if (postsResponse?.success && postsResponse?.data) {
+        setPosts(postsResponse.data);
+      }
+
+      // Fetch events
+      const eventsResponse = await GETFunction(eventurl);
+      if (eventsResponse?.success && eventsResponse?.data) {
+        // Filter and categorize events
+        const allEvents = eventsResponse.data;
+        const bigEventsList = allEvents.filter((e: any) => e.isFeatured || e.attendees > 1000);
+        const recommendedEventsList = allEvents.filter((e: any) => !e.isFeatured && e.attendees <= 1000);
+
+        setBigEvents(bigEventsList.slice(0, 3));
+        setRecommendedEvents(recommendedEventsList.slice(0, 2));
+      }
+    } catch (err: any) {
+      console.error("Error fetching data:", err);
+      setError(err.message || "Failed to load feed data");
+    } finally {
+      setIsLoading(false);
     }
-  ]);
+  };
 
-  const [bigEvents, setBigEvents] = useState([
-    {
-      id: "big-1",
-      title: "Spring Career Fair 2024",
-      image: "https://images.unsplash.com/photo-1552664730-d307ca884978?w=400&h=300&fit=crop",
-      date: "Mar 15-16",
-      time: "2 Days",
-      location: "Student Union",
-      category: "Career",
-      attendees: 2500,
-      price: "Free",
-      isBookmarked: false,
-      isRSVPd: false,
-      status: "upcoming"
-    },
-    {
-      id: "big-2",
-      title: "Homecoming Weekend",
-      image: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=300&fit=crop",
-      date: "Oct 12-14",
-      time: "3 Days",
-      location: "Campus-wide",
-      category: "Campus",
-      attendees: 8000,
-      price: "Varies",
-      isBookmarked: true,
-      isRSVPd: true,
-      status: "happening"
-    },
-    {
-      id: "big-3",
-      title: "Graduation Ceremony",
-      image: "https://images.unsplash.com/photo-1627556704203-3a0712d18d37?w=400&h=300&fit=crop",
-      date: "May 18",
-      time: "10:00 AM",
-      location: "Football Stadium",
-      category: "Academic",
-      attendees: 15000,
-      price: "Free",
-      isBookmarked: false,
-      isRSVPd: false,
-      status: "upcoming"
+  const handleLike = async (postId: string) => {
+    try {
+      // Optimistically update UI
+      setPosts(prev => prev.map(post =>
+        post.id === postId
+          ? {
+              ...post,
+              isLiked: !post.isLiked,
+              likes: post.isLiked ? post.likes - 1 : post.likes + 1
+            }
+          : post
+      ));
+
+      // Make API call to update like
+      await PUTFunction({ postId }, `${posturl}${postId}/like`);
+    } catch (err) {
+      console.error("Error liking post:", err);
+      // Revert optimistic update on error
+      setPosts(prev => prev.map(post =>
+        post.id === postId
+          ? {
+              ...post,
+              isLiked: !post.isLiked,
+              likes: post.isLiked ? post.likes + 1 : post.likes - 1
+            }
+          : post
+      ));
     }
-  ]);
-
-  const [recommendedEvents, setRecommendedEvents] = useState([
-    {
-      id: "1",
-      title: "Study Abroad Info Session",
-      image: "https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=400&h=300&fit=crop",
-      date: "Dec 20",
-      time: "3:00 PM",
-      location: "International Center",
-      category: "Academic",
-      attendees: 45,
-      price: "Free",
-      isBookmarked: false,
-      isRSVPd: false
-    },
-    {
-      id: "2",
-      title: "Mental Health Workshop",
-      image: "https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=400&h=300&fit=crop",
-      date: "Dec 22",
-      time: "1:00 PM",
-      location: "Wellness Center",
-      category: "Wellness",
-      attendees: 67,
-      price: "Free",
-      isBookmarked: true,
-      isRSVPd: true
-    }
-  ]);
-
-
-
-  const handleLike = (postId: string) => {
-    setPosts(prev => prev.map(post => 
-      post.id === postId 
-        ? { 
-            ...post, 
-            isLiked: !post.isLiked,
-            likes: post.isLiked ? post.likes - 1 : post.likes + 1
-          }
-        : post
-    ));
   };
 
   const handleComment = (postId: string) => {
     console.log("Comment on post:", postId);
   };
 
-  const handleAddComment = (postId: string, commentText: string) => {
-    setPosts(prev => prev.map(post => {
-      if (post.id === postId) {
-        const newComment = {
-          id: `c${Date.now()}`,
-          user: {
-            name: "Alex Johnson",
-            avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop",
-            username: "alex_j"
-          },
-          content: commentText,
-          timestamp: "Just now"
-        };
-        return {
-          ...post,
-          comments: post.comments + 1,
-          commentsList: [...(post.commentsList || []), newComment]
-        };
+  const handleAddComment = async (postId: string, commentText: string) => {
+    try {
+      // Optimistically add comment to UI
+      const tempComment = {
+        id: `temp-${Date.now()}`,
+        user: {
+          name: "Current User",
+          avatar: "",
+          username: "current_user"
+        },
+        content: commentText,
+        timestamp: "Just now"
+      };
+
+      setPosts(prev => prev.map(post => {
+        if (post.id === postId) {
+          return {
+            ...post,
+            comments: post.comments + 1,
+            commentsList: [...(post.commentsList || []), tempComment]
+          };
+        }
+        return post;
+      }));
+
+      // Make API call to add comment
+      const response = await POSTFunction({ content: commentText }, `${posturl}${postId}/comment`);
+
+      // Update with actual comment data from server
+      if (response?.success && response?.data) {
+        setPosts(prev => prev.map(post => {
+          if (post.id === postId) {
+            const updatedComments = post.commentsList.filter((c: any) => c.id !== tempComment.id);
+            return {
+              ...post,
+              commentsList: [...updatedComments, response.data]
+            };
+          }
+          return post;
+        }));
       }
-      return post;
-    }));
+    } catch (err) {
+      console.error("Error adding comment:", err);
+      // Could add error toast here
+    }
   };
 
   const handleShare = (postId: string) => {
@@ -296,20 +175,48 @@ export function HomeFeed({ onNavigate }: HomeFeedProps) {
     }
   };
 
-  const handleRSVP = (eventId: string) => {
-    setRecommendedEvents(prev => prev.map(event => 
-      event.id === eventId 
-        ? { ...event, isRSVPd: !event.isRSVPd }
-        : event
-    ));
+  const handleRSVP = async (eventId: string) => {
+    try {
+      // Optimistically update UI
+      setRecommendedEvents(prev => prev.map(event =>
+        event.id === eventId
+          ? { ...event, isRSVPd: !event.isRSVPd }
+          : event
+      ));
+
+      // Make API call to update RSVP
+      await PUTFunction({ eventId }, `${eventurl}${eventId}/rsvp`);
+    } catch (err) {
+      console.error("Error updating RSVP:", err);
+      // Revert optimistic update on error
+      setRecommendedEvents(prev => prev.map(event =>
+        event.id === eventId
+          ? { ...event, isRSVPd: !event.isRSVPd }
+          : event
+      ));
+    }
   };
 
-  const handleBookmark = (eventId: string) => {
-    setRecommendedEvents(prev => prev.map(event => 
-      event.id === eventId 
-        ? { ...event, isBookmarked: !event.isBookmarked }
-        : event
-    ));
+  const handleBookmark = async (eventId: string) => {
+    try {
+      // Optimistically update UI
+      setRecommendedEvents(prev => prev.map(event =>
+        event.id === eventId
+          ? { ...event, isBookmarked: !event.isBookmarked }
+          : event
+      ));
+
+      // Make API call to update bookmark
+      await PUTFunction({ eventId }, `${eventurl}${eventId}/bookmark`);
+    } catch (err) {
+      console.error("Error updating bookmark:", err);
+      // Revert optimistic update on error
+      setRecommendedEvents(prev => prev.map(event =>
+        event.id === eventId
+          ? { ...event, isBookmarked: !event.isBookmarked }
+          : event
+      ));
+    }
   };
 
   const handleBigEventClick = (eventId: string) => {
@@ -317,11 +224,7 @@ export function HomeFeed({ onNavigate }: HomeFeedProps) {
   };
 
   useEffect(() => {
-    // Simulate loading delay
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1500);
-    return () => clearTimeout(timer);
+    fetchData();
   }, []);
 
   return (
@@ -339,6 +242,24 @@ export function HomeFeed({ onNavigate }: HomeFeedProps) {
           </div>
         </div>
       </div>
+
+      {/* Error Display */}
+      {error && (
+        <div className="max-w-md mx-auto p-4">
+          <div className="bg-destructive/10 border border-destructive/50 rounded-lg p-4 text-destructive">
+            <p className="font-medium">Error loading feed</p>
+            <p className="text-sm mt-1">{error}</p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2"
+              onClick={fetchData}
+            >
+              Try Again
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Content */}
       <div className="max-w-md mx-auto">

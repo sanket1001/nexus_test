@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
 import { Button } from "../ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Badge } from "../ui/badge";
@@ -12,6 +12,8 @@ import { Label } from "../ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { LoadingSpinner } from "../common/LoadingSpinner";
 import { SkeletonProfileHeader, SkeletonPostCard } from "../common/SkeletonCard";
+import APIContext from "../../Context/apimethods/APIContext";
+import { userinfo, posturl, eventurl } from "../../Context/API/ApiRouter";
 import {
   Settings,
   MapPin,
@@ -73,7 +75,10 @@ interface UserProfileProps {
 }
 
 export function UserProfile({ selectedProfileId = "student", activeTab = "about", onNavigate }: UserProfileProps) {
+  const { GETFunction, POSTFunction, PUTFunction } = useContext(APIContext);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [userProfileData, setUserProfileData] = useState<any>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editFormData, setEditFormData] = useState({
     bio: "",
@@ -272,8 +277,26 @@ export function UserProfile({ selectedProfileId = "student", activeTab = "about"
     }
   ]);
 
-  // Mock student data
-  const studentProfile = {
+  // Fetch user profile data from backend
+  const fetchUserProfile = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const response = await GETFunction(userinfo);
+      if (response?.success && response?.data) {
+        setUserProfileData(response.data);
+      }
+    } catch (err: any) {
+      console.error("Error fetching user profile:", err);
+      setError(err.message || "Failed to load user profile");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Mock student data (fallback if API fails)
+  const studentProfile = userProfileData || {
     name: "Alex Johnson",
     email: "alex.johnson@university.edu",
     avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&h=300&fit=crop&crop=face",
@@ -591,13 +614,9 @@ export function UserProfile({ selectedProfileId = "student", activeTab = "about"
     return ["President", "Vice President"].includes(currentUserRole);
   };
 
-  // Simulate loading delay
+  // Fetch user profile on mount or when profileId changes
   useEffect(() => {
-    setIsLoading(true);
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1200);
-    return () => clearTimeout(timer);
+    fetchUserProfile();
   }, [selectedProfileId]);
 
   // Profile image upload handlers
@@ -1407,6 +1426,27 @@ export function UserProfile({ selectedProfileId = "student", activeTab = "about"
           <div className="mt-6 space-y-4">
             <SkeletonPostCard />
             <SkeletonPostCard />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background pb-20 lg:pb-8">
+        <div className="max-w-5xl mx-auto px-4 pt-4">
+          <div className="bg-destructive/10 border border-destructive/50 rounded-lg p-6 text-destructive">
+            <p className="font-medium text-lg">Error loading profile</p>
+            <p className="text-sm mt-2">{error}</p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-4"
+              onClick={fetchUserProfile}
+            >
+              Try Again
+            </Button>
           </div>
         </div>
       </div>

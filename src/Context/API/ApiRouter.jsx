@@ -1,5 +1,5 @@
-//export const host = "https://nexuscampus.onrender.com/api/";
-export const host = "http://localhost:5000/api/";
+// Use environment variable for API URL, fallback to localhost for development
+export const host = import.meta.env.VITE_API_URL || "http://localhost:5000/api/";
 
 // Auth Routes
 export const loginurl = "auth/login";

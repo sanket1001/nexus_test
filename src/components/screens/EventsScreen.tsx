@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { EventCard } from "../common/EventCard";
@@ -6,12 +6,15 @@ import { Badge } from "../ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Search, Grid3X3, List, Calendar, MapPin, Filter, Check, CheckCheck } from "lucide-react";
 import { SkeletonEventCard } from "../common/SkeletonCard";
+import APIContext from "../../Context/apimethods/APIContext";
+import { eventurl } from "../../Context/API/ApiRouter";
 
 interface EventsScreenProps {
   onNavigate?: (screen: string, data?: any) => void;
 }
 
 export function EventsScreen({ onNavigate }: EventsScreenProps) {
+  const { GETFunction, POSTFunction, PUTFunction } = useContext(APIContext);
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchTerm, setSearchTerm] = useState("");
@@ -19,175 +22,33 @@ export function EventsScreen({ onNavigate }: EventsScreenProps) {
   const [selectedDate, setSelectedDate] = useState("all");
   const [selectedLocation, setSelectedLocation] = useState("all");
   const [showGoingOnly, setShowGoingOnly] = useState(false);
+  const [events, setEvents] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   const categories = ["all", "Academic", "Sports", "Arts", "Greek Life", "Service", "Cultural"];
   const dateFilters = ["all", "today", "tomorrow", "this-week", "this-month"];
   const locations = ["all", "Library", "Recreation Center", "Student Union", "Campus Quad", "Engineering Building", "Convention Center", "Campus Amphitheater", "Wellness Center"];
 
-  const [events, setEvents] = useState([
-    {
-      id: "evt1",
-      title: "CS Study Group for Finals",
-      image: "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=400&h=300&fit=crop",
-      date: "Dec 18",
-      time: "6:00 PM",
-      location: "Library Room 204",
-      category: "Academic",
-      attendees: 23,
-      price: "Free",
-      isBookmarked: false,
-      isRSVPd: false,
-      organizer: "Computer Science Club",
-      description: "Join us for a collaborative study session as we prepare for final exams. Bring your questions and let's tackle them together!",
-      status: "approved"
-    },
-    {
-      id: "evt2",
-      title: "Intramural Basketball Tournament",
-      image: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=300&fit=crop",
-      date: "Jan 20",
-      time: "3:00 PM",
-      location: "Recreation Center Court A",
-      category: "Sports",
-      attendees: 156,
-      price: "Free",
-      isBookmarked: true,
-      isRSVPd: true,
-      organizer: "Campus Basketball League",
-      description: "Annual basketball tournament open to all skill levels. Form your team or join as a free agent!",
-      status: "approved"
-    },
-    {
-      id: "evt3",
-      title: "Winter Art Exhibition Opening",
-      image: "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=300&fit=crop",
-      date: "Feb 5",
-      time: "7:00 PM",
-      location: "Student Union Gallery",
-      category: "Arts",
-      attendees: 89,
-      price: "Free",
-      isBookmarked: false,
-      isRSVPd: false,
-      organizer: "Art & Design Society",
-      description: "Celebrate student creativity at our winter exhibition featuring paintings, sculptures, and digital art.",
-      status: "approved"
-    },
-    {
-      id: "evt4",
-      title: "Greek Life Recruitment Fair",
-      image: "https://images.unsplash.com/photo-1543610892-0b1f7e6d8ac1?w=400&h=300&fit=crop",
-      date: "Mar 12",
-      time: "2:00 PM",
-      location: "Campus Quad",
-      category: "Greek Life",
-      attendees: 245,
-      price: "Free",
-      isBookmarked: false,
-      isRSVPd: false,
-      organizer: "Alpha Beta Gamma",
-      description: "Meet representatives from various fraternities and sororities. Learn about opportunities for leadership and service.",
-      status: "approved"
-    },
-    {
-      id: "evt5",
-      title: "Community Garden Volunteer Day",
-      image: "https://images.unsplash.com/photo-1559027615-cd4628902d4a?w=400&h=300&fit=crop",
-      date: "Apr 15",
-      time: "9:00 AM",
-      location: "Campus Community Garden",
-      category: "Service",
-      attendees: 78,
-      price: "Free",
-      isBookmarked: true,
-      isRSVPd: false,
-      organizer: "Volunteer Corps",
-      description: "Help maintain our campus community garden. We'll be planting, weeding, and harvesting fresh produce.",
-      status: "approved"
-    },
-    {
-      id: "evt6",
-      title: "International Food Festival",
-      image: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=400&h=300&fit=crop",
-      date: "Apr 22",
-      time: "12:00 PM",
-      location: "Student Union Plaza",
-      category: "Cultural",
-      attendees: 312,
-      price: "$5",
-      isBookmarked: false,
-      isRSVPd: false,
-      organizer: "International Student Association",
-      description: "Taste authentic dishes from around the world prepared by international students and local restaurants."
-    },
-    {
-      id: "evt7",
-      title: "Career Fair 2024",
-      image: "https://images.unsplash.com/photo-1517180102446-f3ece451e9d8?w=400&h=300&fit=crop",
-      date: "May 3",
-      time: "10:00 AM",
-      location: "Convention Center",
-      category: "Academic",
-      attendees: 567,
-      price: "Free",
-      isBookmarked: false,
-      isRSVPd: true,
-      organizer: "Career Services",
-      description: "Network with top employers and explore internship and job opportunities across various industries."
-    },
-    {
-      id: "evt8",
-      title: "Spring Concert Series",
-      image: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=300&fit=crop",
-      date: "May 10",
-      time: "8:00 PM",
-      location: "Campus Amphitheater",
-      category: "Arts",
-      attendees: 445,
-      price: "$10",
-      isBookmarked: true,
-      isRSVPd: false,
-      organizer: "Music Department",
-      description: "Enjoy an evening of live performances by student bands and solo artists in our beautiful outdoor venue."
-    },
-    {
-      id: "evt9",
-      title: "Mental Health Awareness Workshop",
-      image: "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=400&h=300&fit=crop",
-      date: "May 15",
-      time: "2:00 PM",
-      location: "Wellness Center",
-      category: "Service",
-      attendees: 134,
-      price: "Free",
-      isBookmarked: false,
-      isRSVPd: false,
-      organizer: "Student Wellness Initiative",
-      description: "Learn about mental health resources, stress management techniques, and peer support systems."
-    },
-    {
-      id: "evt10",
-      title: "Tech Innovation Showcase",
-      image: "https://images.unsplash.com/photo-1517180102446-f3ece451e9d8?w=400&h=300&fit=crop",
-      date: "May 20",
-      time: "4:00 PM",
-      location: "Engineering Building Atrium",
-      category: "Academic",
-      attendees: 289,
-      price: "Free",
-      isBookmarked: false,
-      isRSVPd: false,
-      organizer: "Computer Science Club",
-      description: "See cutting-edge student projects in AI, robotics, and software development. Network with tech industry professionals."
+  // Fetch events from backend
+  const fetchData = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const eventsResponse = await GETFunction(eventurl);
+      if (eventsResponse?.success && eventsResponse?.data) {
+        setEvents(eventsResponse.data);
+      }
+    } catch (err: any) {
+      console.error("Error fetching events:", err);
+      setError(err.message || "Failed to load events");
+    } finally {
+      setIsLoading(false);
     }
-  ]);
+  };
 
   useEffect(() => {
-    // Simulate loading delay
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1500);
-    return () => clearTimeout(timer);
+    fetchData();
   }, []);
 
   // Helper function to check if event matches date filter
@@ -232,20 +93,48 @@ export function EventsScreen({ onNavigate }: EventsScreenProps) {
     return matchesSearch && matchesCategory && matchesDate && matchesLocation && matchesGoing;
   });
 
-  const handleBookmark = (eventId: string) => {
-    setEvents(prev => prev.map(event => 
-      event.id === eventId 
-        ? { ...event, isBookmarked: !event.isBookmarked }
-        : event
-    ));
+  const handleBookmark = async (eventId: string) => {
+    try {
+      // Optimistically update UI
+      setEvents(prev => prev.map(event =>
+        event.id === eventId
+          ? { ...event, isBookmarked: !event.isBookmarked }
+          : event
+      ));
+
+      // Make API call to update bookmark
+      await PUTFunction({ eventId }, `${eventurl}${eventId}/bookmark`);
+    } catch (err) {
+      console.error("Error updating bookmark:", err);
+      // Revert optimistic update on error
+      setEvents(prev => prev.map(event =>
+        event.id === eventId
+          ? { ...event, isBookmarked: !event.isBookmarked }
+          : event
+      ));
+    }
   };
 
-  const handleRSVP = (eventId: string) => {
-    setEvents(prev => prev.map(event => 
-      event.id === eventId 
-        ? { ...event, isRSVPd: !event.isRSVPd }
-        : event
-    ));
+  const handleRSVP = async (eventId: string) => {
+    try {
+      // Optimistically update UI
+      setEvents(prev => prev.map(event =>
+        event.id === eventId
+          ? { ...event, isRSVPd: !event.isRSVPd }
+          : event
+      ));
+
+      // Make API call to update RSVP
+      await PUTFunction({ eventId }, `${eventurl}${eventId}/rsvp`);
+    } catch (err) {
+      console.error("Error updating RSVP:", err);
+      // Revert optimistic update on error
+      setEvents(prev => prev.map(event =>
+        event.id === eventId
+          ? { ...event, isRSVPd: !event.isRSVPd }
+          : event
+      ));
+    }
   };
 
   const handleOrganizerClick = (organizerName: string) => {
@@ -370,6 +259,24 @@ export function EventsScreen({ onNavigate }: EventsScreenProps) {
           </div>
         </div>
       </div>
+
+      {/* Error Display */}
+      {error && (
+        <div className="max-w-md mx-auto p-4">
+          <div className="bg-destructive/10 border border-destructive/50 rounded-lg p-4 text-destructive">
+            <p className="font-medium">Error loading events</p>
+            <p className="text-sm mt-1">{error}</p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2"
+              onClick={fetchData}
+            >
+              Try Again
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Content */}
       <div className="max-w-md mx-auto p-4">
