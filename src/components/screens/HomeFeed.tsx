@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
 import { Button } from "../ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { PostCard } from "../common/PostCard";
@@ -7,13 +7,17 @@ import { Search, Bell, Star } from "lucide-react";
 import { ImageWithFallback } from "../figma/ImageWithFallback";
 import { LoadingSpinner } from "../common/LoadingSpinner";
 import { SkeletonPostCard, SkeletonBigEventCard } from "../common/SkeletonCard";
+import APIContext from "../../Context/apimethods/APIContext";
+import * as apiroute from "../../Context/API/ApiRouter";
 
 interface HomeFeedProps {
   onNavigate?: (screen: string, data?: any) => void;
 }
 
 export function HomeFeed({ onNavigate }: HomeFeedProps) {
+  const { GETFunction, POSTFunction, PUTFunction } = useContext(APIContext);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [posts, setPosts] = useState([
     {
       id: "1",
@@ -218,43 +222,92 @@ export function HomeFeed({ onNavigate }: HomeFeedProps) {
 
 
 
-  const handleLike = (postId: string) => {
-    setPosts(prev => prev.map(post => 
-      post.id === postId 
-        ? { 
-            ...post, 
+  const handleLike = async (postId: string) => {
+    // Optimistically update UI
+    setPosts(prev => prev.map(post =>
+      post.id === postId
+        ? {
+            ...post,
             isLiked: !post.isLiked,
             likes: post.isLiked ? post.likes - 1 : post.likes + 1
           }
         : post
     ));
+
+    try {
+      // Call backend API to like/unlike post
+      // Endpoint: POST /api/post/:id/like or PUT /api/post/:id/like
+      const response = await POSTFunction({}, `${apiroute.posturl}${postId}/like`);
+
+      if (!response.success) {
+        // Revert optimistic update on failure
+        setPosts(prev => prev.map(post =>
+          post.id === postId
+            ? {
+                ...post,
+                isLiked: !post.isLiked,
+                likes: post.isLiked ? post.likes + 1 : post.likes - 1
+              }
+            : post
+        ));
+        console.error("Failed to like post:", response.error);
+      }
+    } catch (err) {
+      // Revert optimistic update on error
+      setPosts(prev => prev.map(post =>
+        post.id === postId
+          ? {
+              ...post,
+              isLiked: !post.isLiked,
+              likes: post.isLiked ? post.likes + 1 : post.likes - 1
+            }
+          : post
+      ));
+      console.error("Error liking post:", err);
+    }
   };
 
   const handleComment = (postId: string) => {
     console.log("Comment on post:", postId);
   };
 
-  const handleAddComment = (postId: string, commentText: string) => {
-    setPosts(prev => prev.map(post => {
-      if (post.id === postId) {
-        const newComment = {
-          id: `c${Date.now()}`,
-          user: {
-            name: "Alex Johnson",
-            avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop",
-            username: "alex_j"
-          },
-          content: commentText,
-          timestamp: "Just now"
-        };
-        return {
-          ...post,
-          comments: post.comments + 1,
-          commentsList: [...(post.commentsList || []), newComment]
-        };
+  const handleAddComment = async (postId: string, commentText: string) => {
+    try {
+      // Call backend API to add comment
+      // Endpoint: POST /api/post/:id/comment
+      const response = await POSTFunction(
+        { content: commentText },
+        `${apiroute.posturl}${postId}/comment`
+      );
+
+      if (response.success) {
+        // Update posts with the new comment from the server
+        setPosts(prev => prev.map(post => {
+          if (post.id === postId) {
+            const newComment = {
+              id: response.comment?._id || `c${Date.now()}`,
+              user: {
+                name: response.comment?.author?.name || "You",
+                avatar: response.comment?.author?.avatar || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop",
+                username: response.comment?.author?.username || "you"
+              },
+              content: commentText,
+              timestamp: "Just now"
+            };
+            return {
+              ...post,
+              comments: post.comments + 1,
+              commentsList: [...(post.commentsList || []), newComment]
+            };
+          }
+          return post;
+        }));
+      } else {
+        console.error("Failed to add comment:", response.error);
       }
-      return post;
-    }));
+    } catch (err) {
+      console.error("Error adding comment:", err);
+    }
   };
 
   const handleShare = (postId: string) => {
@@ -317,12 +370,63 @@ export function HomeFeed({ onNavigate }: HomeFeedProps) {
   };
 
   useEffect(() => {
-    // Simulate loading delay
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1500);
-    return () => clearTimeout(timer);
+    fetchPosts();
   }, []);
+
+  const fetchPosts = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const response = await GETFunction(apiroute.posturl);
+
+      if (response.success) {
+        // Transform backend data to match the PostCard interface
+        const transformedPosts = response.posts.map((post: any) => ({
+          id: post._id || post.id,
+          user: {
+            name: post.author?.name || post.organizationName || "Unknown User",
+            avatar: post.author?.avatar || post.organizationAvatar || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face",
+            username: post.author?.username || post.organizationUsername || "unknown"
+          },
+          content: post.content || post.description || "",
+          image: post.image || post.imageUrl,
+          timestamp: formatTimestamp(post.createdAt || post.date),
+          likes: post.likes || 0,
+          comments: post.comments?.length || 0,
+          isLiked: post.isLiked || false,
+          commentsList: post.comments || []
+        }));
+
+        setPosts(transformedPosts);
+      } else {
+        setError(response.error || "Failed to fetch posts");
+        console.error("Failed to fetch posts:", response.error);
+      }
+    } catch (err) {
+      setError("Unable to connect to server. Please try again later.");
+      console.error("Error fetching posts:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const formatTimestamp = (timestamp: string) => {
+    if (!timestamp) return "Just now";
+
+    const now = new Date();
+    const postDate = new Date(timestamp);
+    const diffMs = now.getTime() - postDate.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m`;
+    if (diffHours < 24) return `${diffHours}h`;
+    if (diffDays < 7) return `${diffDays}d`;
+    return postDate.toLocaleDateString();
+  };
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -394,12 +498,33 @@ export function HomeFeed({ onNavigate }: HomeFeedProps) {
 
         {/* Campus Feed */}
         <div className="p-4 space-y-6">
+          {/* Error Message */}
+          {error && (
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+              <div className="flex items-center gap-2">
+                <p className="text-red-800 dark:text-red-200 text-sm">{error}</p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={fetchPosts}
+                  className="ml-auto"
+                >
+                  Retry
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Recent Posts */}
           {isLoading ? (
             <>
               <SkeletonPostCard />
               <SkeletonPostCard />
             </>
+          ) : posts.length === 0 && !error ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">No posts available. Check back later!</p>
+            </div>
           ) : (
             posts.slice(0, 2).map((post) => (
               <PostCard
@@ -438,12 +563,7 @@ export function HomeFeed({ onNavigate }: HomeFeedProps) {
           </div>
 
           {/* More Posts */}
-          {isLoading ? (
-            <>
-              <SkeletonPostCard />
-              <SkeletonPostCard />
-            </>
-          ) : (
+          {!isLoading && !error && posts.length > 2 && (
             posts.slice(2).map((post) => (
               <PostCard
                 key={post.id}
